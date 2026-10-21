@@ -1172,7 +1172,8 @@ pub fn end_if_left(app: &mut PhotocraftApp) {
     {
         commit(app);
         // Picking another tool or layer can't leave a refused transform open: it ends, as Esc would.
-        if app.ui.transform.is_some() {
+        // A commit running as a background job is not refused: let it land (#8211).
+        if app.ui.transform.is_some() && committing(app).is_none() {
             cancel(app);
         }
     }
