@@ -1124,6 +1124,19 @@ pub fn on_job_event(app: &mut PhotocraftApp, e: &JobEvent) {
     // A refused commit (a result over the pixel budget, #3773) keeps the box open, as inline.
     if let JobOutcome::Failed(msg) = &e.outcome {
         pv.committing = None;
+        // A tool or layer picked while the commit ran displaces the box; end it here, where the
+        // inline path does, instead of reopening it for `end_if_left` to commit again (#8211).
+        // (A switched document or a layer that went away is ended there without a retry.)
+        let tool = app.ui.tool;
+        let displaced = app.session.active().is_some_and(|st| {
+            st.doc.id == pv.doc.id
+                && st.doc.layer(LayerId(t.layer)).is_some()
+                && (pv.tool != tool || (!t.selection && st.active_layer.is_some_and(|active| active.0 != t.layer)))
+        });
+        if displaced {
+            finish(app, Some(pv.doc.id), LayerId(t.layer), t.made, false);
+            return;
+        }
         keep_open(app, t, Some(pv), msg.clone());
         return;
     }
